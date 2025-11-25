@@ -556,10 +556,9 @@
                 }
 
                 // *** SECURE CHANGE: Sending to the PROXY_ENDPOINT ***
-                const response = await fetch(PROXY_ENDPOINT, { 
+                const response = await fetch('/api/discord-proxy', {
                     method: 'POST',
                     body: formData,
-                    // Browser automatically sets Content-Type for FormData
                 });
 
                 if (response.ok) {
