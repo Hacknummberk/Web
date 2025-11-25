@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานสำหรับเจ้าหน้าที่ (สดย.)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1E3A8A; /* Dark Blue - Emphasis */
+            --secondary-yellow: #FCD34D; /* Amber/Yellow - Highlight */
+            --bg-light: #F4F7F9; /* Off-white/Light Gray */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            min-height: 100vh;
+        }
+        .report-card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-top: 5px solid var(--primary-blue);
+            transition: transform 0.3s ease;
+        }
+        .btn-primary {
+            background-color: var(--primary-blue);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-primary:hover {
+            background-color: #1D4ED8;
+            transform: translateY(-1px);
+        }
+        .tab-active {
+            border-bottom: 3px solid var(--secondary-yellow);
+            color: var(--primary-blue);
+            font-weight: 700;
+            background-color: white;
+        }
+        /* Custom scrollbar for better mobile feel */
+        ::-webkit-scrollbar { display: none; }
+
+        /* Modal specific styling */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.75);
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+    <div id="custom-modal" class="modal fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-8 transform transition-transform duration-300 scale-95">
+            <div id="modal-icon" class="text-6xl mb-4 text-center"></div>
+            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-gray-900 text-center"></h3>
+            <p id="modal-message" class="text-gray-600 mb-6 text-center"></p>
+            <button onclick="closeModal()" class="w-full btn-primary text-white font-semibold py-3 rounded-lg shadow-lg">ปิด</button>
+        </div>
+    </div>
+    
+    <div id="login-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-gray-900/90">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 transform scale-100">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4 text-center">ลงชื่อเข้าใช้งาน</h3>
+            <p class="text-gray-600 mb-6 text-center">กรุณากรอกชื่อหรือรหัสประจำตัวของคุณเพื่อใช้ในการรายงาน</p>
+            <form id="login-form">
+                <label for="badge-name" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ / รหัสประจำตัว (Badge No.)</label>
+                <input type="text" id="badge-name" name="badge-name" placeholder="เช่น ร.ต.อ. สมชาย / 12345" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue mb-6">
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg shadow-lg">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-content" class="max-w-xl mx-auto hidden">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-1">ระบบรายงานข้อมูล/ฯลฯ ของ ศูนย์ป้องกันภัย</h1>
+            <p class="text-gray-500">รายงานปฏิบัติการประจำวัน</p>
+            <p class="text-sm font-semibold text-primary-blue mt-3 p-2 bg-primary-blue/10 rounded-lg shadow-sm inline-block">เจ้าหน้าที่: <span id="officer-name-display">...</span></p>
+        </header>
+
+        <div class="flex border-b border-gray-300 bg-white rounded-t-lg overflow-x-auto whitespace-nowrap shadow-md mb-6 sticky top-0 z-10">
+            <button id="tab-shift" onclick="showSection('shift', 'tab-shift')" class="py-3 px-3 text-gray-500 tab-active text-sm flex-grow">1. เข้า/ออกเวร</button>
+            <button id="tab-patrol" onclick="showSection('patrol', 'tab-patrol')" class="py-3 px-3 text-gray-500 text-sm flex-grow">2. ออกตรวจ</button>
+            <button id="tab-incident" onclick="showSection('incident', 'tab-incident')" class="py-3 px-3 text-gray-500 text-sm flex-grow">3. แจ้งเหตุ</button>
+            <button id="tab-resolve" onclick="showSection('resolve', 'tab-resolve')" class="py-3 px-3 text-gray-500 text-sm flex-grow">4. ระงับเหตุ</button>
+            <button id="tab-activity" onclick="showSection('activity', 'tab-activity')" class="py-3 px-3 text-gray-500 text-sm flex-grow">5. กิจกรรม</button>
+            <button id="tab-leave" onclick="showSection('leave', 'tab-leave')" class="py-3 px-3 text-gray-500 text-sm flex-grow">6. แจ้งลา</button>
+            <button id="tab-equipment" onclick="showSection('equipment', 'tab-equipment')" class="py-3 px-3 text-gray-500 text-sm flex-grow">7. แจ้งอุปกรณ์</button>
+        </div>
+
+        <div id="shift-section" class="report-card bg-white p-6 rounded-lg space-y-5">
+            <h2 class="text-xl font-bold text-gray-800">1. รายงานเข้าเวร/ออกเวร</h2>
+            <form id="shift-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="shift-type" class="block text-sm font-medium text-gray-700 mb-1">ประเภทการรายงาน</label>
+                        <select id="shift-type" name="shift-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="เข้าเวร">เข้าเวร (Start Shift)</option>
+                            <option value="ออกเวร">ออกเวร (End Shift)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="shift-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเข้า/ออก</label>
+                        <input type="datetime-local" id="shift-time" name="shift-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="shift-media" class="block text-sm font-medium text-gray-700 mb-1">หลักฐาน (รูปภาพ อย่างน้อย 2 ไฟล์ - สูงสุด 10 ไฟล์)</label>
+                        <input type="file" id="shift-media" name="shift-media" accept="image/*" multiple required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue/10 file:text-primary-blue hover:file:bg-primary-blue/20">
+                        <p id="shift-media-count" class="text-xs text-gray-500 mt-2 p-1 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานเข้า/ออกเวร</button>
+            </form>
+        </div>
+
+        <div id="patrol-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">2. รายงานออกตรวจ/หยุดตรวจ</h2>
+            <form id="patrol-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="patrol-type" class="block text-sm font-medium text-gray-700 mb-1">สถานะการตรวจ</label>
+                        <select id="patrol-type" name="patrol-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="ออกตรวจ">ออกตรวจ (Start Patrol)</option>
+                            <option value="หยุดตรวจ">หยุดตรวจ (End Patrol)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="patrol-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาออก/หยุดตรวจ</label>
+                        <input type="datetime-local" id="patrol-time" name="patrol-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="patrol-media" class="block text-sm font-medium text-gray-700 mb-1">หลักฐาน (รูปภาพ อย่างน้อย 3 ไฟล์ - สูงสุด 10 ไฟล์)</label>
+                        <input type="file" id="patrol-media" name="patrol-media" accept="image/*" multiple required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue/10 file:text-primary-blue hover:file:bg-primary-blue/20">
+                        <p id="patrol-media-count" class="text-xs text-gray-500 mt-2 p-1 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานออกตรวจ</button>
+            </form>
+        </div>
+
+        <div id="incident-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">3. แจ้งเหตุ/อุบัติเหตุ</h2>
+            <form id="incident-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="incident-id" class="block text-sm font-medium text-gray-700 mb-1">รหัสเหตุการณ์ (ID)</label>
+                        <input type="text" id="incident-id" name="incident-id" required readonly class="w-full p-3 border border-gray-300 bg-gray-100 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="incident-location" class="block text-sm font-medium text-gray-700 mb-1">สถานที่เกิดเหตุ</label>
+                        <input type="text" id="incident-location" name="incident-location" placeholder="ระบุสถานที่/ถนน/พิกัด" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="incident-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเกิดเหตุ</label>
+                        <input type="datetime-local" id="incident-time" name="incident-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="incident-details" class="block text-sm font-medium text-gray-700 mb-1">รายละเอียดเหตุการณ์</label>
+                        <textarea id="incident-details" name="incident-details" rows="3" placeholder="เช่น อุบัติเหตุรถชน, ทะเลาะวิวาท" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หลักฐาน (รูปภาพ - สูงสุด 10 ไฟล์)</label>
+                        <div class="flex space-x-3">
+                            <input type="file" id="incident-media-select" name="incident-media-select" accept="image/*" multiple class="hidden" onchange="updateDualFileCount('incident', 'select')">
+                            <button type="button" onclick="document.getElementById('incident-media-select').click(); clearOtherInput('incident', 'camera')" 
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-200 transition duration-150 text-sm shadow-sm">
+                                เลือกไฟล์จากเครื่อง
+                            </button>
+
+                            <input type="file" id="incident-media-camera" name="incident-media-camera" accept="image/*" multiple capture="camera" class="hidden" onchange="updateDualFileCount('incident', 'camera')">
+                            <button type="button" onclick="document.getElementById('incident-media-camera').click(); clearOtherInput('incident', 'select')" 
+                                    class="flex-1 px-4 py-3 bg-primary-blue/10 text-primary-blue font-semibold rounded-lg border border-primary-blue/30 hover:bg-primary-blue/20 transition duration-150 text-sm shadow-sm">
+                                📸 ถ่ายภาพทันที
+                            </button>
+                        </div>
+                        <p id="incident-media-count" class="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานแจ้งเหตุ</button>
+            </form>
+        </div>
+
+        <div id="resolve-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">4. แจ้งระงับเหตุ</h2>
+            <form id="resolve-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="resolve-incident-id" class="block text-sm font-medium text-gray-700 mb-1">รหัสเหตุการณ์ (ID) ที่ระงับ</label>
+                        <input type="text" id="resolve-incident-id" name="resolve-incident-id" placeholder="ID เหตุการณ์ที่ต้องการระงับ (เช่น INC-12345)" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="resolve-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาระงับเหตุ</label>
+                        <input type="datetime-local" id="resolve-time" name="resolve-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="resolve-count" class="block text-sm font-medium text-gray-700 mb-1">จำนวนเจ้าหน้าที่/กำลังที่ใช้</label>
+                        <input type="number" id="resolve-count" name="resolve-count" min="1" value="1" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานระงับเหตุ</button>
+            </form>
+        </div>
+        
+        <div id="activity-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">5. แจ้งกิจกรรม/ภารกิจ (Event/Mission)</h2>
+            <form id="activity-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="activity-name" class="block text-sm font-medium text-gray-700 mb-1">ชื่อกิจกรรม/ภารกิจ</label>
+                        <input type="text" id="activity-name" name="activity-name" placeholder="เช่น ตั้งด่านตรวจ, ช่วยงานชุมชน, ฝึกซ้อม" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="activity-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเริ่ม/จบกิจกรรม</label>
+                        <input type="datetime-local" id="activity-time" name="activity-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="activity-details" class="block text-sm font-medium text-gray-700 mb-1">สรุปรายละเอียดกิจกรรม</label>
+                        <textarea id="activity-details" name="activity-details" rows="3" placeholder="ระบุวัตถุประสงค์และผลสรุป" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หลักฐาน (รูปภาพ ตามความเหมาะสม - สูงสุด 10 ไฟล์)</label>
+                        <div class="flex space-x-3">
+                            <input type="file" id="activity-media-select" name="activity-media-select" accept="image/*" multiple class="hidden" onchange="updateDualFileCount('activity', 'select')">
+                            <button type="button" onclick="document.getElementById('activity-media-select').click(); clearOtherInput('activity', 'camera')" 
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-200 transition duration-150 text-sm shadow-sm">
+                                เลือกไฟล์จากเครื่อง
+                            </button>
+
+                            <input type="file" id="activity-media-camera" name="activity-media-camera" accept="image/*" multiple capture="camera" class="hidden" onchange="updateDualFileCount('activity', 'camera')">
+                            <button type="button" onclick="document.getElementById('activity-media-camera').click(); clearOtherInput('activity', 'select')" 
+                                    class="flex-1 px-4 py-3 bg-primary-blue/10 text-primary-blue font-semibold rounded-lg border border-primary-blue/30 hover:bg-primary-blue/20 transition duration-150 text-sm shadow-sm">
+                                📸 ถ่ายภาพทันที
+                            </button>
+                        </div>
+                        <p id="activity-media-count" class="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานกิจกรรม</button>
+            </form>
+        </div>
+
+        <div id="leave-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">6. แจ้งลากิจ/ป่วย/ลาเวร</h2>
+            <form id="leave-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="leave-type" class="block text-sm font-medium text-gray-700 mb-1">ประเภทการลา</label>
+                        <select id="leave-type" name="leave-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="ลากิจ">ลากิจ</option>
+                            <option value="ลาป่วย">ลาป่วย</option>
+                            <option value="ลาเวร">ลาเวร</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="leave-start-time" class="block text-sm font-medium text-gray-700 mb-1">วันที่และเวลาเริ่มต้น (ตั้งอัตโนมัติ)</label>
+                        <input type="datetime-local" id="leave-start-time" name="leave-start-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="leave-end-time" class="block text-sm font-medium text-gray-700 mb-1">วันที่และเวลาสิ้นสุด</label>
+                        <input type="datetime-local" id="leave-end-time" name="leave-end-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-b
