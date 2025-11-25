@@ -377,7 +377,8 @@
         }
         // --- End Firebase/Auth Setup ---
 
-        // NEW SECURE ENDPOINT - This points to the Serverless Function
+        // FIX: The Discord Webhook URL is now securely handled in the Vercel/Netlify Environment Variables (DISCORD_WEBHOOK_URL).
+        // The frontend will call the local proxy function: /api/discord-proxy.
         const PROXY_ENDPOINT = '/api/discord-proxy';
         
         // --- Modal/Pop-up Functions ---
@@ -538,8 +539,7 @@
         }
 
         /**
-         * Sends data and files to the Discord Webhook through the secure proxy endpoint.
-         * * @param {FormData} formData The form data containing 'payload_json' and attached files.
+         * Sends data and files to the Discord Webhook via the proxy.
          */
         async function sendToDiscord(formData) {
             if (!officerName) {
@@ -549,21 +549,20 @@
             }
 
             try {
-                // Check if files exceed the Discord limit (client-side check for better UX)
+                // Check if files exist and if they exceed the Discord limit
                 const fileEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith('file'));
                 if (fileEntries.length > MAX_DISCORD_FILES) {
                     return showModal('ข้อผิดพลาด', `Discord Webhook รองรับสูงสุด ${MAX_DISCORD_FILES} ไฟล์ต่อการส่ง กรุณาเลือกไฟล์ให้น้อยลง`, 'error');
                 }
-
-                // *** SECURE CHANGE: Sending to the PROXY_ENDPOINT ***
-                const response = await fetch('/api/discord-proxy', {
+                
+                // FIX: Use the local PROXY_ENDPOINT instead of the external DISCORD_WEBHOOK_URL
+                const response = await fetch(PROXY_ENDPOINT, { 
                     method: 'POST',
                     body: formData,
                 });
 
                 if (response.ok) {
                     showModal('ส่งรายงานสำเร็จ', 'รายงานและรูปภาพของคุณถูกส่งไปยัง เจ้าหน้าที่ เรียบร้อยแล้ว', 'success');
-                    
                     // Reset form and file counts
                     const activeSection = document.querySelector('.report-card:not(.hidden)');
                     if (activeSection) {
@@ -588,13 +587,13 @@
                     setLocalTime('leave-start-time');
                     setLocalTime('leave-end-time');
                 } else {
-                    const errorData = await response.json().catch(() => ({error: 'Unknown Response Format'}));
-                    const errorDetail = errorData.error || `HTTP Status ${response.status}`;
-                    showModal('ส่งรายงานไม่สำเร็จ', `เกิดข้อผิดพลาดในการส่ง: ${errorDetail}`, 'error');
-                    console.error("Proxy Error:", response.status, errorData);
+                    const errorText = await response.text();
+                    // Display the error from the proxy endpoint (e.g., "Failed to proxy request to Discord.")
+                    showModal('ส่งรายงานไม่สำเร็จ', `เกิดข้อผิดพลาดในการส่ง: ${response.status} - ${errorText.substring(0, 50)}...`, 'error');
+                    console.error("Proxy Endpoint Error:", response.status, errorText);
                 }
             } catch (error) {
-                showModal('ข้อผิดพลาดในการเชื่อมต่อ', `ไม่สามารถติดต่อ Server Proxy ได้: ${error.message}`, 'error');
+                showModal('ข้อผิดพลาดในการเชื่อมต่อ', `ไม่สามารถติดต่อ Proxy Endpoint ได้: ${error.message}`, 'error');
                 console.error("Fetch error:", error);
             }
         }
