@@ -1,13 +1,15 @@
 {
-  "name": "discord-report-app",
+  "name": "web-report-app",
   "version": "1.0.0",
-  "description": "Secure proxy for Discord webhooks with file upload support.",
-  "dependencies": {
-    "axios": "^1.6.2",
-    "formidable": "^3.5.1",
-    "form-data": "^4.0.0"
-  },
+  "description": "Discord Webhook proxy for report submissions.",
+  "main": "api/discord-proxy.js",
   "scripts": {
-    "start": "echo 'Run this on Vercel/Netlify for serverless deployment'"
+    "start": "echo 'Running proxy function...'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "formidable": "^3.5.1",
+    "node-fetch": "^2.6.7",
+    "form-data": "^4.0.0"
   }
 }
