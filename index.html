@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานสำหรับเจ้าหน้าที่ (สดย.)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1E3A8A; /* Dark Blue - Emphasis */
+            --secondary-yellow: #FCD34D; /* Amber/Yellow - Highlight */
+            --bg-light: #F4F7F9; /* Off-white/Light Gray */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            min-height: 100vh;
+        }
+        .report-card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-top: 5px solid var(--primary-blue);
+            transition: transform 0.3s ease;
+        }
+        .btn-primary {
+            background-color: var(--primary-blue);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-primary:hover {
+            background-color: #1D4ED8;
+            transform: translateY(-1px);
+        }
+        .tab-active {
+            border-bottom: 3px solid var(--secondary-yellow);
+            color: var(--primary-blue);
+            font-weight: 700;
+            background-color: white;
+        }
+        /* Custom scrollbar for better mobile feel */
+        ::-webkit-scrollbar { display: none; }
+
+        /* Modal specific styling */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.75);
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+    <div id="custom-modal" class="modal fixed inset-0 z-50 flex items-center justify-center opacity-0 pointer-events-none">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-8 transform transition-transform duration-300 scale-95">
+            <div id="modal-icon" class="text-6xl mb-4 text-center"></div>
+            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-gray-900 text-center"></h3>
+            <p id="modal-message" class="text-gray-600 mb-6 text-center"></p>
+            <button onclick="closeModal()" class="w-full btn-primary text-white font-semibold py-3 rounded-lg shadow-lg">ปิด</button>
+        </div>
+    </div>
+    
+    <div id="login-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-gray-900/90">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 transform scale-100">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4 text-center">ลงชื่อเข้าใช้งาน</h3>
+            <p class="text-gray-600 mb-6 text-center">กรุณากรอกชื่อหรือรหัสประจำตัวของคุณเพื่อใช้ในการรายงาน</p>
+            <form id="login-form">
+                <label for="badge-name" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ / รหัสประจำตัว (Badge No.)</label>
+                <input type="text" id="badge-name" name="badge-name" placeholder="เช่น ร.ต.อ. สมชาย / 12345" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue mb-6">
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg shadow-lg">เข้าสู่ระบบ</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-content" class="max-w-xl mx-auto hidden">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-1">ระบบรายงานข้อมูล/ฯลฯ ของ ศูนย์ป้องกันภัย</h1>
+            <p class="text-gray-500">รายงานปฏิบัติการประจำวัน</p>
+            <p class="text-sm font-semibold text-primary-blue mt-3 p-2 bg-primary-blue/10 rounded-lg shadow-sm inline-block">เจ้าหน้าที่: <span id="officer-name-display">...</span></p>
+        </header>
+
+        <div class="flex border-b border-gray-300 bg-white rounded-t-lg overflow-x-auto whitespace-nowrap shadow-md mb-6 sticky top-0 z-10">
+            <button id="tab-shift" onclick="showSection('shift', 'tab-shift')" class="py-3 px-3 text-gray-500 tab-active text-sm flex-grow">1. เข้า/ออกเวร</button>
+            <button id="tab-patrol" onclick="showSection('patrol', 'tab-patrol')" class="py-3 px-3 text-gray-500 text-sm flex-grow">2. ออกตรวจ</button>
+            <button id="tab-incident" onclick="showSection('incident', 'tab-incident')" class="py-3 px-3 text-gray-500 text-sm flex-grow">3. แจ้งเหตุ</button>
+            <button id="tab-resolve" onclick="showSection('resolve', 'tab-resolve')" class="py-3 px-3 text-gray-500 text-sm flex-grow">4. ระงับเหตุ</button>
+            <button id="tab-activity" onclick="showSection('activity', 'tab-activity')" class="py-3 px-3 text-gray-500 text-sm flex-grow">5. กิจกรรม</button>
+            <button id="tab-leave" onclick="showSection('leave', 'tab-leave')" class="py-3 px-3 text-gray-500 text-sm flex-grow">6. แจ้งลา</button>
+            <button id="tab-equipment" onclick="showSection('equipment', 'tab-equipment')" class="py-3 px-3 text-gray-500 text-sm flex-grow">7. แจ้งอุปกรณ์</button>
+        </div>
+
+        <div id="shift-section" class="report-card bg-white p-6 rounded-lg space-y-5">
+            <h2 class="text-xl font-bold text-gray-800">1. รายงานเข้าเวร/ออกเวร</h2>
+            <form id="shift-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="shift-type" class="block text-sm font-medium text-gray-700 mb-1">ประเภทการรายงาน</label>
+                        <select id="shift-type" name="shift-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="เข้าเวร">เข้าเวร (Start Shift)</option>
+                            <option value="ออกเวร">ออกเวร (End Shift)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="shift-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเข้า/ออก</label>
+                        <input type="datetime-local" id="shift-time" name="shift-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="shift-media" class="block text-sm font-medium text-gray-700 mb-1">หลักฐาน (รูปภาพ อย่างน้อย 2 ไฟล์ - สูงสุด 10 ไฟล์)</label>
+                        <input type="file" id="shift-media" name="shift-media" accept="image/*" multiple required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue/10 file:text-primary-blue hover:file:bg-primary-blue/20">
+                        <p id="shift-media-count" class="text-xs text-gray-500 mt-2 p-1 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานเข้า/ออกเวร</button>
+            </form>
+        </div>
+
+        <div id="patrol-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">2. รายงานออกตรวจ/หยุดตรวจ</h2>
+            <form id="patrol-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="patrol-type" class="block text-sm font-medium text-gray-700 mb-1">สถานะการตรวจ</label>
+                        <select id="patrol-type" name="patrol-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="ออกตรวจ">ออกตรวจ (Start Patrol)</option>
+                            <option value="หยุดตรวจ">หยุดตรวจ (End Patrol)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="patrol-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาออก/หยุดตรวจ</label>
+                        <input type="datetime-local" id="patrol-time" name="patrol-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="patrol-media" class="block text-sm font-medium text-gray-700 mb-1">หลักฐาน (รูปภาพ อย่างน้อย 3 ไฟล์ - สูงสุด 10 ไฟล์)</label>
+                        <input type="file" id="patrol-media" name="patrol-media" accept="image/*" multiple required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-blue/10 file:text-primary-blue hover:file:bg-primary-blue/20">
+                        <p id="patrol-media-count" class="text-xs text-gray-500 mt-2 p-1 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานออกตรวจ</button>
+            </form>
+        </div>
+
+        <div id="incident-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">3. แจ้งเหตุ/อุบัติเหตุ</h2>
+            <form id="incident-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="incident-id" class="block text-sm font-medium text-gray-700 mb-1">รหัสเหตุการณ์ (ID)</label>
+                        <input type="text" id="incident-id" name="incident-id" required readonly class="w-full p-3 border border-gray-300 bg-gray-100 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="incident-location" class="block text-sm font-medium text-gray-700 mb-1">สถานที่เกิดเหตุ</label>
+                        <input type="text" id="incident-location" name="incident-location" placeholder="ระบุสถานที่/ถนน/พิกัด" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="incident-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเกิดเหตุ</label>
+                        <input type="datetime-local" id="incident-time" name="incident-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="incident-details" class="block text-sm font-medium text-gray-700 mb-1">รายละเอียดเหตุการณ์</label>
+                        <textarea id="incident-details" name="incident-details" rows="3" placeholder="เช่น อุบัติเหตุรถชน, ทะเลาะวิวาท" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หลักฐาน (รูปภาพ - สูงสุด 10 ไฟล์)</label>
+                        <div class="flex space-x-3">
+                            <input type="file" id="incident-media-select" name="incident-media-select" accept="image/*" multiple class="hidden" onchange="updateDualFileCount('incident', 'select')">
+                            <button type="button" onclick="document.getElementById('incident-media-select').click(); clearOtherInput('incident', 'camera')" 
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-200 transition duration-150 text-sm shadow-sm">
+                                เลือกไฟล์จากเครื่อง
+                            </button>
+
+                            <input type="file" id="incident-media-camera" name="incident-media-camera" accept="image/*" multiple capture="camera" class="hidden" onchange="updateDualFileCount('incident', 'camera')">
+                            <button type="button" onclick="document.getElementById('incident-media-camera').click(); clearOtherInput('incident', 'select')" 
+                                    class="flex-1 px-4 py-3 bg-primary-blue/10 text-primary-blue font-semibold rounded-lg border border-primary-blue/30 hover:bg-primary-blue/20 transition duration-150 text-sm shadow-sm">
+                                📸 ถ่ายภาพทันที
+                            </button>
+                        </div>
+                        <p id="incident-media-count" class="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานแจ้งเหตุ</button>
+            </form>
+        </div>
+
+        <div id="resolve-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">4. แจ้งระงับเหตุ</h2>
+            <form id="resolve-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="resolve-incident-id" class="block text-sm font-medium text-gray-700 mb-1">รหัสเหตุการณ์ (ID) ที่ระงับ</label>
+                        <input type="text" id="resolve-incident-id" name="resolve-incident-id" placeholder="ID เหตุการณ์ที่ต้องการระงับ (เช่น INC-12345)" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="resolve-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาระงับเหตุ</label>
+                        <input type="datetime-local" id="resolve-time" name="resolve-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="resolve-count" class="block text-sm font-medium text-gray-700 mb-1">จำนวนเจ้าหน้าที่/กำลังที่ใช้</label>
+                        <input type="number" id="resolve-count" name="resolve-count" min="1" value="1" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานระงับเหตุ</button>
+            </form>
+        </div>
+        
+        <div id="activity-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">5. แจ้งกิจกรรม/ภารกิจ (Event/Mission)</h2>
+            <form id="activity-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="activity-name" class="block text-sm font-medium text-gray-700 mb-1">ชื่อกิจกรรม/ภารกิจ</label>
+                        <input type="text" id="activity-name" name="activity-name" placeholder="เช่น ตั้งด่านตรวจ, ช่วยงานชุมชน, ฝึกซ้อม" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="activity-time" class="block text-sm font-medium text-gray-700 mb-1">เวลาเริ่ม/จบกิจกรรม</label>
+                        <input type="datetime-local" id="activity-time" name="activity-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="activity-details" class="block text-sm font-medium text-gray-700 mb-1">สรุปรายละเอียดกิจกรรม</label>
+                        <textarea id="activity-details" name="activity-details" rows="3" placeholder="ระบุวัตถุประสงค์และผลสรุป" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+                    
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หลักฐาน (รูปภาพ ตามความเหมาะสม - สูงสุด 10 ไฟล์)</label>
+                        <div class="flex space-x-3">
+                            <input type="file" id="activity-media-select" name="activity-media-select" accept="image/*" multiple class="hidden" onchange="updateDualFileCount('activity', 'select')">
+                            <button type="button" onclick="document.getElementById('activity-media-select').click(); clearOtherInput('activity', 'camera')" 
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-200 transition duration-150 text-sm shadow-sm">
+                                เลือกไฟล์จากเครื่อง
+                            </button>
+
+                            <input type="file" id="activity-media-camera" name="activity-media-camera" accept="image/*" multiple capture="camera" class="hidden" onchange="updateDualFileCount('activity', 'camera')">
+                            <button type="button" onclick="document.getElementById('activity-media-camera').click(); clearOtherInput('activity', 'select')" 
+                                    class="flex-1 px-4 py-3 bg-primary-blue/10 text-primary-blue font-semibold rounded-lg border border-primary-blue/30 hover:bg-primary-blue/20 transition duration-150 text-sm shadow-sm">
+                                📸 ถ่ายภาพทันที
+                            </button>
+                        </div>
+                        <p id="activity-media-count" class="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานกิจกรรม</button>
+            </form>
+        </div>
+
+        <div id="leave-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">6. แจ้งลากิจ/ป่วย/ลาเวร</h2>
+            <form id="leave-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="leave-type" class="block text-sm font-medium text-gray-700 mb-1">ประเภทการลา</label>
+                        <select id="leave-type" name="leave-type" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="ลากิจ">ลากิจ</option>
+                            <option value="ลาป่วย">ลาป่วย</option>
+                            <option value="ลาเวร">ลาเวร</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="leave-start-time" class="block text-sm font-medium text-gray-700 mb-1">วันที่และเวลาเริ่มต้น (ตั้งอัตโนมัติ)</label>
+                        <input type="datetime-local" id="leave-start-time" name="leave-start-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="leave-end-time" class="block text-sm font-medium text-gray-700 mb-1">วันที่และเวลาสิ้นสุด</label>
+                        <input type="datetime-local" id="leave-end-time" name="leave-end-time" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="leave-reason" class="block text-sm font-medium text-gray-700 mb-1">เหตุผลโดยย่อ</label>
+                        <textarea id="leave-reason" name="leave-reason" rows="2" placeholder="ระบุเหตุผลในการลา" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งคำขอแจ้งลา</button>
+            </form>
+        </div>
+        
+        <div id="equipment-section" class="report-card bg-white p-6 rounded-lg space-y-5 hidden">
+            <h2 class="text-xl font-bold text-gray-800">7. แจ้งอุปกรณ์หาย/พัง</h2>
+            <form id="equipment-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="equipment-status" class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                        <select id="equipment-status" name="equipment-status" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                            <option value="หาย">หาย (Lost)</option>
+                            <option value="พัง/ชำรุด">พัง/ชำรุด (Broken/Damaged)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="equipment-name" class="block text-sm font-medium text-gray-700 mb-1">ชื่ออุปกรณ์</label>
+                        <input type="text" id="equipment-name" name="equipment-name" placeholder="เช่น วิทยุสื่อสาร, กุญแจมือ, ไฟฉาย" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="equipment-qty" class="block text-sm font-medium text-gray-700 mb-1">จำนวน</label>
+                        <input type="number" id="equipment-qty" name="equipment-qty" min="1" value="1" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue">
+                    </div>
+                    <div>
+                        <label for="equipment-details" class="block text-sm font-medium text-gray-700 mb-1">รายละเอียด/สาเหตุ</label>
+                        <textarea id="equipment-details" name="equipment-details" rows="3" placeholder="อธิบายสาเหตุที่หายหรือชำรุดโดยละเอียด" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue"></textarea>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">หลักฐาน (รูปภาพประกอบ - สูงสุด 10 ไฟล์)</label>
+                        <div class="flex space-x-3">
+                            <input type="file" id="equipment-media-select" name="equipment-media-select" accept="image/*" multiple class="hidden" onchange="updateDualFileCount('equipment', 'select')">
+                            <button type="button" onclick="document.getElementById('equipment-media-select').click(); clearOtherInput('equipment', 'camera')" 
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-200 transition duration-150 text-sm shadow-sm">
+                                เลือกไฟล์จากเครื่อง
+                            </button>
+
+                            <input type="file" id="equipment-media-camera" name="equipment-media-camera" accept="image/*" multiple capture="camera" class="hidden" onchange="updateDualFileCount('equipment', 'camera')">
+                            <button type="button" onclick="document.getElementById('equipment-media-camera').click(); clearOtherInput('equipment', 'select')" 
+                                    class="flex-1 px-4 py-3 bg-primary-blue/10 text-primary-blue font-semibold rounded-lg border border-primary-blue/30 hover:bg-primary-blue/20 transition duration-150 text-sm shadow-sm">
+                                📸 ถ่ายภาพทันที
+                            </button>
+                        </div>
+                        <p id="equipment-media-count" class="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">จำนวนไฟล์ที่เลือก: 0</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white font-semibold py-3 rounded-lg mt-6 shadow-lg">ส่งรายงานแจ้งอุปกรณ์</button>
+            </form>
+        </div>
+        
+        <div class="mt-8 text-center text-xs text-gray-400 p-4">
+            <p id="user-id-display">App ID: <span id="app-id-text">...</span> | UID (Internal): <span id="uid-text">...</span></p>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- Firebase/Auth Setup (Mandatory Boilerplate) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        setLogLevel('Debug');
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const MAX_DISCORD_FILES = 10;
+        let db, auth;
+        let internalUID = 'loading';
+        let officerName = null;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            document.getElementById('app-id-text').textContent = appId;
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    internalUID = user.uid;
+                    document.getElementById('uid-text').textContent = internalUID;
+                    if (!officerName) {
+                        document.getElementById('login-modal').classList.remove('hidden');
+                    }
+                } else {
+                    signInAnonymously(auth).then(userCredential => {
+                        internalUID = userCredential.user.uid;
+                        document.getElementById('uid-text').textContent = internalUID;
+                        if (!officerName) {
+                             document.getElementById('login-modal').classList.remove('hidden');
+                        }
+                    }).catch(error => {
+                        console.error("Anonymous sign-in failed:", error);
+                        document.getElementById('uid-text').textContent = `Auth Failed.`;
+                    });
+                }
+            });
+
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(error => {
+                    console.error("Custom token sign-in failed:", error);
+                });
+            }
+
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+        }
+        // --- End Firebase/Auth Setup ---
+
+        // NEW SECURE ENDPOINT - This points to the Serverless Function
+        const PROXY_ENDPOINT = '/api/discord-proxy';
+        
+        // --- Modal/Pop-up Functions ---
+        
+        function showModal(title, message, type) {
+            const modal = document.getElementById('custom-modal');
+            const icon = document.getElementById('modal-icon');
+            const modalContent = document.getElementById('modal-content');
+            
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            
+            icon.classList.remove('text-green-600', 'text-red-600');
+            modalContent.classList.remove('scale-95');
+
+            if (type === 'success') {
+                icon.innerHTML = '✔️';
+                icon.classList.add('text-green-600');
+            } else {
+                icon.innerHTML = '❌';
+                icon.classList.add('text-red-600');
+            }
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.add('scale-100');
+        }
+
+        window.closeModal = () => {
+            const modal = document.getElementById('custom-modal');
+            const modalContent = document.getElementById('modal-content');
+
+            modalContent.classList.remove('scale-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        // --- Login Form Submission ---
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const badgeInput = document.getElementById('badge-name').value.trim();
+            if (badgeInput) {
+                officerName = badgeInput;
+                document.getElementById('officer-name-display').textContent = officerName;
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+                showModal('ยินดีต้อนรับ', `เข้าสู่ระบบในฐานะ ${officerName} เรียบร้อยแล้ว`, 'success');
+            }
+        });
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Clears the file list of the non-selected input element to ensure only one set of files is used.
+         * @param {string} section The section identifier (e.g., 'incident')
+         * @param {string} inputType The type of input to clear ('select' or 'camera')
+         */
+        window.clearOtherInput = (section, inputType) => {
+            const otherId = inputType === 'select' ? `${section}-media-select` : `${section}-media-camera`;
+            const otherInput = document.getElementById(otherId);
+            if (otherInput) {
+                 // Clear file list by resetting the input
+                otherInput.value = ''; 
+                // Manually update the count to 0 since the onchange event isn't triggered by value reset
+                const countElement = document.getElementById(`${section}-media-count`);
+                if (countElement) {
+                    countElement.textContent = 'จำนวนไฟล์ที่เลือก: 0';
+                }
+            }
+        }
+        
+        /**
+         * Updates the file count for dual input fields and also updates the count for single input fields.
+         * @param {string} section The section identifier (e.g., 'incident')
+         * @param {string} inputSource 'select', 'camera', or null for single input
+         */
+        window.updateDualFileCount = (section, inputSource) => {
+            let files = [];
+
+            if (inputSource) {
+                // Dual input logic (Incident, Activity, Equipment)
+                const inputId = `${section}-media-${inputSource}`;
+                const input = document.getElementById(inputId);
+                files = input ? input.files : [];
+            } else {
+                // Single input logic (Shift, Patrol)
+                const inputId = `${section}-media`;
+                const input = document.getElementById(inputId);
+                files = input ? input.files : [];
+            }
+
+            const countId = `${section}-media-count`;
+            const countElement = document.getElementById(countId);
+            if (countElement) {
+                const count = files.length;
+                countElement.textContent = `จำนวนไฟล์ที่เลือก: ${count}`;
+                 if (count > MAX_DISCORD_FILES) {
+                     showModal('คำเตือน', `คุณเลือกไฟล์เกิน ${MAX_DISCORD_FILES} ไฟล์ ระบบจะส่งได้เพียง 10 ไฟล์แรกเท่านั้น`, 'error');
+                }
+            }
+        }
+
+        /**
+         * Gets the correct file list for forms with dual inputs (select/camera).
+         * @param {string} section The section identifier (e.g., 'incident')
+         * @returns {FileList} The file list containing the selected files.
+         */
+        function getDualInputFiles(section) {
+            const selectInput = document.getElementById(`${section}-media-select`);
+            const cameraInput = document.getElementById(`${section}-media-camera`);
+            
+            if (selectInput && selectInput.files.length > 0) {
+                return selectInput.files;
+            }
+            if (cameraInput && cameraInput.files.length > 0) {
+                return cameraInput.files;
+            }
+            return new FileList(); // Empty FileList if nothing is selected
+        }
+
+        /**
+         * Generates a simple, unique Incident ID.
+         */
+        function generateIncidentId() {
+            const now = new Date();
+            const dateStr = [
+                now.getFullYear().toString().slice(2),
+                (now.getMonth() + 1).toString().padStart(2, '0'),
+                now.getDate().toString().padStart(2, '0')
+            ].join('');
+            const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+            return `INC-${dateStr}-${randomStr}`;
+        }
+
+        /**
+         * Converts a datetime-local string to a readable format for Discord.
+         */
+        function formatDateTime(dtLocal) {
+            if (!dtLocal) return 'N/A';
+            const date = new Date(dtLocal);
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+            return date.toLocaleTimeString('th-TH', options);
+        }
+        
+        /**
+         * Sets the current local time for datetime-local inputs.
+         * @returns {string} Current time in ISO format (YYYY-MM-DDThh:mm)
+         */
+        function setLocalTime(inputId) {
+            const now = new Date();
+            const offset = now.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+            
+            const element = document.getElementById(inputId);
+            if (element) {
+                element.value = localISOTime;
+            }
+            return localISOTime;
+        }
+
+        /**
+         * Sends data and files to the Discord Webhook through the secure proxy endpoint.
+         * * @param {FormData} formData The form data containing 'payload_json' and attached files.
+         */
+        async function sendToDiscord(formData) {
+            if (!officerName) {
+                showModal('ข้อผิดพลาด', 'กรุณาลงชื่อเข้าใช้งานก่อนส่งรายงาน', 'error');
+                document.getElementById('login-modal').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Check if files exceed the Discord limit (client-side check for better UX)
+                const fileEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith('file'));
+                if (fileEntries.length > MAX_DISCORD_FILES) {
+                    return showModal('ข้อผิดพลาด', `Discord Webhook รองรับสูงสุด ${MAX_DISCORD_FILES} ไฟล์ต่อการส่ง กรุณาเลือกไฟล์ให้น้อยลง`, 'error');
+                }
+
+                // *** SECURE CHANGE: Sending to the PROXY_ENDPOINT ***
+                const response = await fetch(PROXY_ENDPOINT, { 
+                    method: 'POST',
+                    body: formData,
+                    // Browser automatically sets Content-Type for FormData
+                });
+
+                if (response.ok) {
+                    showModal('ส่งรายงานสำเร็จ', 'รายงานและรูปภาพของคุณถูกส่งไปยัง เจ้าหน้าที่ เรียบร้อยแล้ว', 'success');
+                    
+                    // Reset form and file counts
+                    const activeSection = document.querySelector('.report-card:not(.hidden)');
+                    if (activeSection) {
+                        const form = activeSection.querySelector('form');
+                        form.reset();
+                        // Reset all dual-input file counts and inputs
+                        ['shift', 'patrol', 'incident', 'activity', 'equipment'].forEach(s => {
+                            const countEl = document.getElementById(`${s}-media-count`);
+                            if (countEl) countEl.textContent = 'จำนวนไฟล์ที่เลือก: 0';
+                            const selectInput = document.getElementById(`${s}-media-select`);
+                            if (selectInput) selectInput.value = '';
+                            const cameraInput = document.getElementById(`${s}-media-camera`);
+                            if (cameraInput) cameraInput.value = '';
+                            const singleInput = document.getElementById(`${s}-media`);
+                            if (singleInput) singleInput.value = '';
+                        });
+
+                        if (activeSection.id === 'incident-section') {
+                             document.getElementById('incident-id').value = generateIncidentId();
+                        }
+                    }
+                    setLocalTime('leave-start-time');
+                    setLocalTime('leave-end-time');
+                } else {
+                    const errorData = await response.json().catch(() => ({error: 'Unknown Response Format'}));
+                    const errorDetail = errorData.error || `HTTP Status ${response.status}`;
+                    showModal('ส่งรายงานไม่สำเร็จ', `เกิดข้อผิดพลาดในการส่ง: ${errorDetail}`, 'error');
+                    console.error("Proxy Error:", response.status, errorData);
+                }
+            } catch (error) {
+                showModal('ข้อผิดพลาดในการเชื่อมต่อ', `ไม่สามารถติดต่อ Server Proxy ได้: ${error.message}`, 'error');
+                console.error("Fetch error:", error);
+            }
+        }
+
+        // --- Core Reporting Functions ---
+
+        // Helper to handle file attachments for forms with a single file input
+        function attachSingleFiles(formData, files) {
+            for(let i = 0; i < files.length; i++) {
+                formData.append(`file${i}`, files[i], files[i].name); 
+            }
+        }
+        
+        // Helper to handle file attachments for forms with dual file inputs
+        function attachDualFiles(formData, section) {
+            const files = getDualInputFiles(section);
+            if (files.length > 0) {
+                 for(let i = 0; i < files.length; i++) {
+                    formData.append(`file${i}`, files[i], files[i].name); 
+                }
+            }
+            return files;
+        }
+
+        /**
+         * 1. รายงานเข้าเวร/ออกเวร
+         */
+        document.getElementById('shift-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const type = form['shift-type'].value;
+            const time = form['shift-time'].value;
+            const files = form['shift-media'].files;
+
+            if (files.length < 2) {
+                return showModal('ข้อผิดพลาด', 'กรุณาแนบรูปภาพหลักฐานอย่างน้อย 2 ไฟล์', 'error');
+            }
+            
+            const payload = {
+                username: "ระบบรายงานเข้า/ออกเวร",
+                embeds: [{
+                    title: `👮‍♂️ รายงาน: ${type} (Shift Report)`,
+                    description: `รายงานการ${type}โดยเจ้าหน้าที่ **${officerName}**`,
+                    color: type === 'เข้าเวร' ? 3066993 : 15844367,
+                    fields: [
+                        { name: "สถานะ", value: type, inline: true },
+                        { name: "เวลา (ระบบ)", value: formatDateTime(time), inline: true },
+                        { name: "จำนวนหลักฐานแนบ", value: `${files.length} รูปภาพ`, inline: false },
+                    ],
+                    image: { url: `attachment://${files[0].name}` },
+                    footer: { text: `ผู้รายงาน: ${officerName} | Internal UID: ${internalUID}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            attachSingleFiles(formData, files);
+
+            await sendToDiscord(formData);
+        });
+
+        /**
+         * 2. รายงานออกตรวจ/หยุดตรวจ
+         */
+        document.getElementById('patrol-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const type = form['patrol-type'].value;
+            const time = form['patrol-time'].value;
+            const files = form['patrol-media'].files;
+
+            if (files.length < 3) {
+                return showModal('ข้อผิดพลาด', 'กรุณาแนบรูปภาพหลักฐานอย่างน้อย 3 ไฟล์', 'error');
+            }
+
+            const payload = {
+                username: "ระบบรายงานการตรวจ",
+                embeds: [{
+                    title: `🚓 รายงาน: ${type} (Patrol Report)`,
+                    description: `รายงานการ${type}ในพื้นที่โดยเจ้าหน้าที่ **${officerName}**`,
+                    color: 5793266,
+                    fields: [
+                        { name: "สถานะ", value: type, inline: true },
+                        { name: "เวลา (ระบบ)", value: formatDateTime(time), inline: true },
+                        { name: "จำนวนหลักฐานแนบ", value: `${files.length} รูปภาพ`, inline: false },
+                    ],
+                    image: { url: `attachment://${files[0].name}` },
+                    footer: { text: `ผู้รายงาน: ${officerName} | Internal UID: ${internalUID}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            attachSingleFiles(formData, files);
+
+            await sendToDiscord(formData);
+        });
+
+        /**
+         * 3. แจ้งเหตุ/อุบัติเหตุ
+         */
+        document.getElementById('incident-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const incidentId = form['incident-id'].value;
+            const location = form['incident-location'].value;
+            const time = form['incident-time'].value;
+            const details = form['incident-details'].value;
+            const files = getDualInputFiles('incident');
+
+            if (files.length === 0) {
+                 return showModal('ข้อผิดพลาด', 'กรุณาแนบรูปภาพในที่เกิดเหตุอย่างน้อย 1 ไฟล์', 'error');
+            }
+
+            const payload = {
+                username: "ระบบแจ้งเหตุฉุกเฉิน",
+                embeds: [{
+                    title: `🚨 รายงานแจ้งเหตุใหม่: ${incidentId}`,
+                    description: `รายละเอียดเหตุการณ์: **${details}**`,
+                    color: 16711680,
+                    fields: [
+                        { name: "รหัสเหตุการณ์", value: incidentId, inline: true },
+                        { name: "เวลาเกิดเหตุ", value: formatDateTime(time), inline: true },
+                        { name: "สถานที่เกิดเหตุ", value: location, inline: false },
+                        { name: "ผู้รายงาน", value: officerName, inline: true },
+                        { name: "จำนวนหลักฐานแนบ", value: `${files.length} รูปภาพ`, inline: true },
+                    ],
+                    image: { url: `attachment://${files[0].name}` },
+                    footer: { text: `Incident ID: ${incidentId} | ผู้รายงาน: ${officerName}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            attachDualFiles(formData, 'incident');
+
+            await sendToDiscord(formData);
+        });
+
+        /**
+         * 4. แจ้งระงับเหตุ (Resolution)
+         */
+        document.getElementById('resolve-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const incidentId = form['resolve-incident-id'].value;
+            const time = form['resolve-time'].value;
+            const officerCount = form['resolve-count'].value;
+            
+            const payload = {
+                username: "ระบบรายงานระงับเหตุ",
+                embeds: [{
+                    title: `✅ เหตุการณ์ถูกระงับ: ${incidentId}`,
+                    description: `รายงานการระงับเหตุการณ์ **${incidentId}** เสร็จสิ้น`,
+                    color: 3066993,
+                    fields: [
+                        { name: "รหัสเหตุการณ์", value: incidentId, inline: true },
+                        { name: "เวลาระงับเหตุ", value: formatDateTime(time), inline: true },
+                        { name: "เจ้าหน้าที่ผู้รายงาน", value: officerName, inline: true },
+                        { name: "จำนวนกำลังพล", value: `${officerCount} นาย`, inline: true },
+                    ],
+                    footer: { text: `ผู้รายงาน: ${officerName}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            await sendToDiscord(formData);
+        });
+
+        /**
+         * 5. แจ้งกิจกรรม/ภารกิจ (Activity Report)
+         */
+        document.getElementById('activity-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const activityName = form['activity-name'].value;
+            const time = form['activity-time'].value;
+            const details = form['activity-details'].value;
+            const files = getDualInputFiles('activity');
+            
+            if (files.length === 0) {
+                 return showModal('ข้อผิดพลาด', 'กรุณาแนบรูปภาพหลักฐานกิจกรรมอย่างน้อย 1 ไฟล์', 'error');
+            }
+
+            const payload = {
+                username: "ระบบรายงานกิจกรรม/ภารกิจ",
+                embeds: [{
+                    title: `📝 รายงานกิจกรรม: ${activityName}`,
+                    description: `สรุปรายละเอียด: **${details}**`,
+                    color: 16776960,
+                    fields: [
+                        { name: "ชื่อกิจกรรม", value: activityName, inline: true },
+                        { name: "เวลา (ระบบ)", value: formatDateTime(time), inline: true },
+                        { name: "ผู้รายงาน", value: officerName, inline: true },
+                        { name: "จำนวนหลักฐานแนบ", value: `${files.length} รูปภาพ`, inline: true },
+                    ],
+                    image: { url: `attachment://${files[0].name}` },
+                    footer: { text: `ผู้รายงาน: ${officerName} | Internal UID: ${internalUID}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            attachDualFiles(formData, 'activity');
+
+            await sendToDiscord(formData);
+        });
+        
+        /**
+         * 6. แจ้งลากิจ / ป่วย / ลาเวร
+         */
+        document.getElementById('leave-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const type = form['leave-type'].value;
+            const reason = form['leave-reason'].value;
+            const startTime = form['leave-start-time'].value;
+            const endTime = form['leave-end-time'].value;
+            
+            const payload = {
+                username: "ระบบแจ้งขอลา",
+                embeds: [{
+                    title: `🔔 คำขอแจ้งลา: ${type}`,
+                    description: `เหตุผล: **${reason}**`,
+                    color: 15158332,
+                    fields: [
+                        { name: "ประเภทการลา", value: type, inline: true },
+                        { name: "ชื่อเจ้าหน้าที่ผู้ลา", value: officerName, inline: true },
+                        { name: "วันที่และเวลาเริ่มต้น", value: formatDateTime(startTime), inline: false },
+                        { name: "วันที่และเวลาสิ้นสุด", value: formatDateTime(endTime), inline: true },
+                    ],
+                    footer: { text: `ผู้รายงาน: ${officerName}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            await sendToDiscord(formData);
+        });
+
+        /**
+         * 7. แจ้งอุปกรณ์หาย/พัง
+         */
+        document.getElementById('equipment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const status = form['equipment-status'].value;
+            const name = form['equipment-name'].value;
+            const qty = form['equipment-qty'].value;
+            const details = form['equipment-details'].value;
+            const files = getDualInputFiles('equipment');
+
+            if (files.length === 0) {
+                 return showModal('ข้อผิดพลาด', 'กรุณาแนบรูปภาพหลักฐานอย่างน้อย 1 ไฟล์', 'error');
+            }
+            
+            const payload = {
+                username: "ระบบแจ้งอุปกรณ์หาย/พัง",
+                embeds: [{
+                    title: `🛠️ แจ้งอุปกรณ์: ${status} (${name})`,
+                    description: `รายละเอียด: **${details}**`,
+                    color: status === 'หาย' ? 16711680 : 16744448, // Red for lost, Orange for broken
+                    fields: [
+                        { name: "สถานะ", value: status, inline: true },
+                        { name: "ชื่ออุปกรณ์", value: name, inline: true },
+                        { name: "จำนวน", value: `${qty} ชิ้น`, inline: true },
+                        { name: "ผู้รายงาน", value: officerName, inline: true },
+                        { name: "จำนวนหลักฐานแนบ", value: `${files.length} รูปภาพ`, inline: true },
+                    ],
+                    image: { url: `attachment://${files[0].name}` },
+                    footer: { text: `ผู้รายงาน: ${officerName} | Internal UID: ${internalUID}` }
+                }]
+            };
+
+            const formData = new FormData();
+            formData.append('payload_json', JSON.stringify(payload));
+            attachDualFiles(formData, 'equipment');
+            
+            await sendToDiscord(formData);
+        });
+
+
+        // --- UI Logic and Initialization ---
+
+        // Function to handle tab switching
+        window.showSection = (sectionId, tabId) => {
+            document.querySelectorAll('.report-card').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(`${sectionId}-section`).classList.remove('hidden');
+
+            document.querySelectorAll('.border-b button').forEach(tab => {
+                tab.classList.remove('tab-active');
+            });
+            document.getElementById(tabId).classList.add('tab-active');
+
+            // Special handling for Incident section to generate ID on switch
+            if (sectionId === 'incident') {
+                document.getElementById('incident-id').value = generateIncidentId();
+            }
+
+            // Special handling for Leave section to auto-fill time
+            if (sectionId === 'leave') {
+                setLocalTime('leave-start-time');
+                setLocalTime('leave-end-time'); // Also set end time to current time initially
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set current time for all single-input datetime-local fields initially
+            ['shift-time', 'patrol-time', 'incident-time', 'resolve-time', 'activity-time', 'leave-start-time', 'leave-end-time'].forEach(id => {
+                setLocalTime(id);
+            });
+            
+            // Initial setup for Incident ID and first tab
+            document.getElementById('incident-id').value = generateIncidentId();
+            showSection('shift', 'tab-shift');
+            
+            // Setup single file count listeners
+            document.getElementById('shift-media').onchange = () => updateDualFileCount('shift', null);
+            document.getElementById('patrol-media').onchange = () => updateDualFileCount('patrol', null);
+            
+            // Dual file count listeners are set inline in HTML: onchange="updateDualFileCount('section', 'select/camera')"
+        });
+
+    </script>
+</body>
+</html>
